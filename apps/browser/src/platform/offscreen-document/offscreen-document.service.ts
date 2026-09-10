@@ -6,6 +6,7 @@ import { OffscreenDocumentService } from "./abstractions/offscreen-document";
 
 export class DefaultOffscreenDocumentService implements OffscreenDocumentService {
   private workerCount = 0;
+  private holdCount = 0;
 
   constructor(private logService: LogService) {}
 
@@ -27,9 +28,40 @@ export class DefaultOffscreenDocumentService implements OffscreenDocumentService
       return await callback();
     } finally {
       this.workerCount--;
-      if (this.workerCount === 0) {
-        await this.close();
+      await this.closeIfUnused();
+    }
+  }
+
+  async holdDocument(
+    reasons: chrome.offscreen.Reason[],
+    justification: string,
+  ): Promise<() => Promise<void>> {
+    this.holdCount++;
+
+    try {
+      if (!(await this.documentExists())) {
+        await this.create(reasons, justification);
       }
+    } catch (e) {
+      this.holdCount--;
+      throw e;
+    }
+
+    let released = false;
+    return async () => {
+      if (released) {
+        return;
+      }
+
+      released = true;
+      this.holdCount--;
+      await this.closeIfUnused();
+    };
+  }
+
+  private async closeIfUnused(): Promise<void> {
+    if (this.workerCount === 0 && this.holdCount === 0) {
+      await this.close();
     }
   }
 

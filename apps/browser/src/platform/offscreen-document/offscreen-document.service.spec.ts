@@ -109,4 +109,66 @@ describe.each([
       });
     });
   });
+
+  describe("holdDocument", () => {
+    it("creates a document when none exists", async () => {
+      await sut.holdDocument(reasons, justification);
+
+      expect(chrome.offscreen.createDocument).toHaveBeenCalledWith({
+        url,
+        reasons,
+        justification,
+      });
+    });
+
+    it("does not create a document when one exists", async () => {
+      api.hasDocument.mockResolvedValue(true);
+
+      await sut.holdDocument(reasons, justification);
+
+      expect(chrome.offscreen.createDocument).not.toHaveBeenCalled();
+    });
+
+    it("keeps the document open until the hold is released", async () => {
+      const release = await sut.holdDocument(reasons, justification);
+
+      expect(chrome.offscreen.closeDocument).not.toHaveBeenCalled();
+
+      await release();
+
+      expect(chrome.offscreen.closeDocument).toHaveBeenCalledTimes(1);
+    });
+
+    it("keeps the document open when an unrelated withDocument caller completes", async () => {
+      const release = await sut.holdDocument(reasons, justification);
+
+      await sut.withDocument(reasons, justification, callback);
+
+      expect(chrome.offscreen.closeDocument).not.toHaveBeenCalled();
+
+      await release();
+
+      expect(chrome.offscreen.closeDocument).toHaveBeenCalledTimes(1);
+    });
+
+    it("closes the document only once when the hold is released twice", async () => {
+      const release = await sut.holdDocument(reasons, justification);
+
+      await release();
+      await release();
+
+      expect(chrome.offscreen.closeDocument).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not leave a hold behind when the document fails to open", async () => {
+      api.createDocument.mockRejectedValue(new Error("boom"));
+
+      await expect(sut.holdDocument(reasons, justification)).rejects.toThrow("boom");
+
+      api.createDocument.mockResolvedValue(undefined);
+      await sut.withDocument(reasons, justification, callback);
+
+      expect(chrome.offscreen.closeDocument).toHaveBeenCalledTimes(1);
+    });
+  });
 });

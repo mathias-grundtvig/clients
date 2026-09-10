@@ -399,6 +399,7 @@ import { BrowserManagedConfigReader } from "../platform/services/browser-managed
 import BrowserMemoryStorageService from "../platform/services/browser-memory-storage.service";
 import { BrowserScriptInjectorService } from "../platform/services/browser-script-injector.service";
 import I18nService from "../platform/services/i18n.service";
+import { ServiceWorkerKeepAliveService } from "../platform/services/keep-alive/service-worker-keep-alive.service";
 import { LocalBackedSessionStorageService } from "../platform/services/local-backed-session-storage.service";
 import { BackgroundPlatformUtilsService } from "../platform/services/platform-utils/background-platform-utils.service";
 import { BrowserPlatformUtilsService } from "../platform/services/platform-utils/browser-platform-utils.service";
@@ -590,6 +591,7 @@ export default class MainBackground {
   private commandsBackground: CommandsBackground;
   private contextMenusBackground: ContextMenusBackground;
   private idleBackground: IdleBackground;
+  private serviceWorkerKeepAliveService: ServiceWorkerKeepAliveService;
   private notificationBackground: NotificationBackground;
   private overlayBackground: OverlayBackgroundInterface;
   private overlayNotificationsBackground: OverlayNotificationsBackgroundInterface;
@@ -1712,6 +1714,12 @@ export default class MainBackground {
       logoutService,
     );
 
+    this.serviceWorkerKeepAliveService = new ServiceWorkerKeepAliveService(
+      this.authService,
+      this.offscreenDocumentService,
+      this.logService,
+    );
+
     this.usernameGenerationService = legacyUsernameGenerationServiceFactory(
       this.apiService,
       this.i18nService,
@@ -1877,6 +1885,7 @@ export default class MainBackground {
       await BrowserApi.setSidePanelOptions({ enabled: false });
     }
     this.idleBackground.init();
+    this.serviceWorkerKeepAliveService.init();
     await this.webRequestBackground?.startListening();
     this.syncServiceListener?.listener$().subscribe();
     await this.autoSubmitLoginBackground.init();

@@ -12,7 +12,7 @@ import { ServerNotificationsService } from "@bitwarden/common/platform/server-no
 import { LockService, LockSource } from "@bitwarden/unlock";
 import { UserId } from "@bitwarden/user-core";
 
-const IdleInterval = 60 * 5; // 5 minutes
+import { IDLE_DETECTION_INTERVAL_SECONDS } from "../platform/browser/browser-api";
 
 export default class IdleBackground {
   private idle: typeof chrome.idle | typeof browser.idle | null;
@@ -43,7 +43,7 @@ export default class IdleBackground {
       }
     };
     if (this.idle.onStateChanged && this.idle.setDetectionInterval) {
-      this.idle.setDetectionInterval(IdleInterval);
+      this.idle.setDetectionInterval(IDLE_DETECTION_INTERVAL_SECONDS);
       this.idle.onStateChanged.addListener(idleHandler);
     } else {
       this.pollIdle(idleHandler);
@@ -91,7 +91,7 @@ export default class IdleBackground {
       this.idleTimer = null;
     }
 
-    void this.idle?.queryState(IdleInterval, (state: string) => {
+    void this.idle?.queryState(IDLE_DETECTION_INTERVAL_SECONDS, (state: string) => {
       if (state !== this.idleState) {
         this.idleState = state;
         handler(state);
