@@ -13,12 +13,16 @@ import {
 
 class OffscreenDocument implements OffscreenDocumentInterface {
   private consoleLogService: ConsoleLogService = new ConsoleLogService(false);
+  private keepAliveInterval: number | null = null;
   private readonly extensionMessageHandlers: OffscreenDocumentExtensionMessageHandlers = {
     offscreenCopyToClipboard: ({ message }) => this.handleOffscreenCopyToClipboard(message),
     offscreenReadFromClipboard: () => this.handleOffscreenReadFromClipboard(),
     localStorageGet: ({ message }) => this.handleLocalStorageGet(message.key),
     localStorageSave: ({ message }) => this.handleLocalStorageSave(message.key, message.value),
     localStorageRemove: ({ message }) => this.handleLocalStorageRemove(message.key),
+    startServiceWorkerKeepAlive: ({ message }) =>
+      this.handleStartServiceWorkerKeepAlive(message.intervalMs),
+    stopServiceWorkerKeepAlive: () => this.handleStopServiceWorkerKeepAlive(),
   };
 
   /**
@@ -54,6 +58,33 @@ class OffscreenDocument implements OffscreenDocumentInterface {
 
   private handleLocalStorageRemove(key: string) {
     self.localStorage.removeItem(key);
+  }
+
+  /**
+   * Starts pinging the service worker on an interval.
+   *
+   * The ping is sent from here rather than from the worker because this document outlives the
+   * worker: the message resets the worker's idle timer while it is running, and revives it if
+   * Chrome has already torn it down.
+   */
+  private handleStartServiceWorkerKeepAlive(intervalMs: number) {
+    this.handleStopServiceWorkerKeepAlive();
+
+    this.keepAliveInterval = self.setInterval(() => {
+      void BrowserApi.sendMessage("serviceWorkerKeepAlivePing").catch(() => {
+        // The worker can be mid-restart, or the extension can be shutting down. Either way
+        // the next tick either lands or the interval is torn down with the document.
+      });
+    }, intervalMs);
+  }
+
+  private handleStopServiceWorkerKeepAlive() {
+    if (this.keepAliveInterval == null) {
+      return;
+    }
+
+    self.clearInterval(this.keepAliveInterval);
+    this.keepAliveInterval = null;
   }
 
   /**

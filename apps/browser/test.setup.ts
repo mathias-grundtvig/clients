@@ -133,6 +133,7 @@ const offscreen = {
   }),
   Reason: {
     CLIPBOARD: "clipboard",
+    WORKERS: "workers",
   },
 };
 
@@ -165,6 +166,17 @@ const webRequest = {
     removeListener: jest.fn(),
   },
   onCompleted: {
+    addListener: jest.fn(),
+    removeListener: jest.fn(),
+  },
+};
+
+const idle = {
+  queryState: jest
+    .fn()
+    .mockImplementation((_detectionIntervalSeconds, callback) => callback("active")),
+  setDetectionInterval: jest.fn(),
+  onStateChanged: {
     addListener: jest.fn(),
     removeListener: jest.fn(),
   },
@@ -286,4 +298,5 @@ global.chrome = {
   webNavigation,
   webRequest,
   alarms,
+  idle,
 } as any;
