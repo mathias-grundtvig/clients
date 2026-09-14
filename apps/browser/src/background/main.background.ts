@@ -399,6 +399,7 @@ import { BrowserManagedConfigReader } from "../platform/services/browser-managed
 import BrowserMemoryStorageService from "../platform/services/browser-memory-storage.service";
 import { BrowserScriptInjectorService } from "../platform/services/browser-script-injector.service";
 import I18nService from "../platform/services/i18n.service";
+import { KeepAliveSettingsService } from "../platform/services/keep-alive/keep-alive-settings.service";
 import { ServiceWorkerKeepAliveService } from "../platform/services/keep-alive/service-worker-keep-alive.service";
 import { LocalBackedSessionStorageService } from "../platform/services/local-backed-session-storage.service";
 import { BackgroundPlatformUtilsService } from "../platform/services/platform-utils/background-platform-utils.service";
@@ -591,6 +592,7 @@ export default class MainBackground {
   private commandsBackground: CommandsBackground;
   private contextMenusBackground: ContextMenusBackground;
   private idleBackground: IdleBackground;
+  private keepAliveSettingsService: KeepAliveSettingsService;
   private serviceWorkerKeepAliveService: ServiceWorkerKeepAliveService;
   private notificationBackground: NotificationBackground;
   private overlayBackground: OverlayBackgroundInterface;
@@ -1714,9 +1716,12 @@ export default class MainBackground {
       logoutService,
     );
 
+    this.keepAliveSettingsService = new KeepAliveSettingsService(this.stateProvider);
+
     this.serviceWorkerKeepAliveService = new ServiceWorkerKeepAliveService(
       this.authService,
       this.offscreenDocumentService,
+      this.keepAliveSettingsService,
       this.logService,
     );
 

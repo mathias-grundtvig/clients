@@ -754,6 +754,10 @@ export class BrowserApi {
     return typeof chrome !== "undefined" && typeof chrome.idle !== "undefined";
   }
 
+  static get isOffscreenApiSupported(): boolean {
+    return typeof chrome !== "undefined" && typeof chrome.offscreen !== "undefined";
+  }
+
   /**
    * Reads the machine's current idle state.
    *

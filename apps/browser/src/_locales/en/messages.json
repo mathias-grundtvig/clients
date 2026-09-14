@@ -6192,6 +6192,15 @@
   "enablePhishingDetectionDesc": {
     "message": "Display warning before accessing suspected phishing sites"
   },
+  "performance": {
+    "message": "Performance"
+  },
+  "keepExtensionRunning": {
+    "message": "Keep extension running while unlocked"
+  },
+  "keepExtensionRunningDesc": {
+    "message": "Opens your vault faster. Keeps vault data in memory and uses more memory while your vault is unlocked."
+  },
   "notifications": {
     "message": "Notifications"
   },

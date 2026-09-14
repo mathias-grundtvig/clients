@@ -159,6 +159,7 @@ export const EXTENSION_INITIAL_INSTALL_DISK = new StateDefinition(
   "extensionInitialInstall",
   "disk",
 );
+export const SERVICE_WORKER_KEEP_ALIVE_DISK = new StateDefinition("serviceWorkerKeepAlive", "disk");
 export const WEB_PUSH_SUBSCRIPTION = new StateDefinition("webPushSubscription", "disk", {
   web: "disk-local",
 });

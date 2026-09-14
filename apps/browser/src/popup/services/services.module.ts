@@ -239,6 +239,7 @@ import BrowserLocalStorageService from "../../platform/services/browser-local-st
 import BrowserMemoryStorageService from "../../platform/services/browser-memory-storage.service";
 import { BrowserScriptInjectorService } from "../../platform/services/browser-script-injector.service";
 import I18nService from "../../platform/services/i18n.service";
+import { KeepAliveSettingsService } from "../../platform/services/keep-alive/keep-alive-settings.service";
 import { ForegroundPlatformUtilsService } from "../../platform/services/platform-utils/foreground-platform-utils.service";
 import { BrowserSdkLoadService } from "../../platform/services/sdk/browser-sdk-load.service";
 import { ForegroundTaskSchedulerService } from "../../platform/services/task-scheduler/foreground-task-scheduler.service";
@@ -899,6 +900,11 @@ const safeProviders: SafeProvider[] = [
     provide: AUTO_CONFIRM_NUDGE_SERVICE as SafeInjectionToken<AutoConfirmNudgeService>,
     useClass: AutoConfirmNudgeService,
     deps: [StateProvider, AutomaticUserConfirmationService],
+  }),
+  safeProvider({
+    provide: KeepAliveSettingsService,
+    useClass: KeepAliveSettingsService,
+    deps: [StateProvider],
   }),
 ];
 

@@ -163,6 +163,26 @@
         </bit-section>
       }
 
+      @if (showKeepServiceWorkerAlive) {
+        <bit-section>
+          <bit-section-header>
+            <h2 bitTypography="h6">{{ "performance" | i18n }}</h2>
+          </bit-section-header>
+          <bit-card>
+            <bit-form-control disableMargin>
+              <bit-switch
+                formControlName="keepServiceWorkerAlive"
+                id="keepServiceWorkerAlive"
+              ></bit-switch>
+              <bit-label for="keepServiceWorkerAlive">{{
+                "keepExtensionRunning" | i18n
+              }}</bit-label>
+              <bit-hint>{{ "keepExtensionRunningDesc" | i18n }}</bit-hint>
+            </bit-form-control>
+          </bit-card>
+        </bit-section>
+      }
+
       <bit-section disableMargin>
         <bit-section-header>
           <h2 bitTypography="h6">{{ "otherOptions" | i18n }}</h2>

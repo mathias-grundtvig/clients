@@ -70,6 +70,7 @@ import BrowserPopupUtils from "../../../platform/browser/browser-popup-utils";
 import { PopOutComponent } from "../../../platform/popup/components/pop-out.component";
 import { PopupHeaderComponent } from "../../../platform/popup/layout/popup-header.component";
 import { PopupPageComponent } from "../../../platform/popup/layout/popup-page.component";
+import { KeepAliveSettingsService } from "../../../platform/services/keep-alive/keep-alive-settings.service";
 import { SetPinComponent } from "../components/set-pin.component";
 import { AuthExtensionRoute } from "../constants/auth-extension-route.constant";
 
@@ -117,6 +118,7 @@ export class AccountSecurityComponent implements OnInit, OnDestroy {
     enablePhishingDetection: true,
     allowSharingUnlockStateWithDesktop: false,
     allowSharingUnlockStateWithWeb: false,
+    keepServiceWorkerAlive: false,
   });
 
   protected showAccountSecurityNudge$: Observable<boolean> =
@@ -138,6 +140,10 @@ export class AccountSecurityComponent implements OnInit, OnDestroy {
   // True when the user declined to trust this TDE device, disabling shared unlock. The value cannot
   // change while this page is open, so it is read once during init.
   protected readonly unlockSharingDisabled = signal(false);
+  // Keeping the service worker resident is only possible on browsers that expose both the
+  // offscreen and idle APIs. Firefox runs a persistent background page and has no need for it.
+  protected readonly showKeepServiceWorkerAlive =
+    BrowserApi.isOffscreenApiSupported && BrowserApi.isIdleApiSupported;
 
   protected refreshTimeoutSettings$ = new BehaviorSubject<void>(undefined);
   private destroy$ = new Subject<void>();
@@ -166,6 +172,7 @@ export class AccountSecurityComponent implements OnInit, OnDestroy {
     private logService: LogService,
     private phishingDetectionSettingsService: PhishingDetectionSettingsServiceAbstraction,
     private sharedUnlockSettingsService: SharedUnlockSettingsService,
+    private keepAliveSettingsService: KeepAliveSettingsService,
   ) {
     this.multiClientPasswordManagement$ = this.configService.getFeatureFlag$(
       FeatureFlag.PM32413_MultiClientPasswordManagement,
@@ -212,6 +219,9 @@ export class AccountSecurityComponent implements OnInit, OnDestroy {
       ),
       allowSharingUnlockStateWithWeb: await firstValueFrom(
         this.sharedUnlockSettingsService.allowSharingUnlockStateWithWeb$(activeAccount.id),
+      ),
+      keepServiceWorkerAlive: await firstValueFrom(
+        this.keepAliveSettingsService.keepServiceWorkerAlive$,
       ),
     };
     this.form.patchValue(initialValues, { emitEvent: false });
@@ -285,6 +295,15 @@ export class AccountSecurityComponent implements OnInit, OnDestroy {
         concatMap(async (enabled) => {
           const userId = await firstValueFrom(this.accountService.activeAccount$.pipe(getUserId));
           await this.phishingDetectionSettingsService.setEnabled(userId, enabled);
+        }),
+        takeUntil(this.destroy$),
+      )
+      .subscribe();
+
+    this.form.controls.keepServiceWorkerAlive.valueChanges
+      .pipe(
+        concatMap(async (enabled) => {
+          await this.keepAliveSettingsService.setKeepServiceWorkerAlive(enabled);
         }),
         takeUntil(this.destroy$),
       )

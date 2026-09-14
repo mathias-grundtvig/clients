@@ -7,6 +7,8 @@ import { LogService } from "@bitwarden/common/platform/abstractions/log.service"
 import { BrowserApi, IDLE_DETECTION_INTERVAL_SECONDS } from "../../browser/browser-api";
 import { OffscreenDocumentService } from "../../offscreen-document/abstractions/offscreen-document";
 
+import { KeepAliveSettingsService } from "./keep-alive-settings.service";
+
 /**
  * How often the offscreen document pings the service worker. Chrome tears an idle extension
  * service worker down after 30 seconds, so the heartbeat has to land well inside that window.
@@ -14,8 +16,8 @@ import { OffscreenDocumentService } from "../../offscreen-document/abstractions/
 export const KEEP_ALIVE_INTERVAL_MS = 20_000;
 
 /**
- * Keeps the extension service worker resident while the user has an unlocked vault and is
- * actively using the browser.
+ * Keeps the extension service worker resident while the user has opted in, has an unlocked
+ * vault, and is actively using the machine.
  *
  * Chrome terminates an idle service worker after 30 seconds. Every popup opened after that
  * point pays for a full background boot — evaluating a multi-megabyte bundle, constructing the
@@ -27,9 +29,13 @@ export const KEEP_ALIVE_INTERVAL_MS = 20_000;
  * because the document outlives the worker: its ping both resets the idle timer while the
  * worker is running and revives a worker Chrome has already torn down.
  *
- * This changes no security property. The session key still lives only in session storage and
- * still dies with the browser session, lock and vault-timeout behaviour is untouched, and the
- * heartbeat stops as soon as every account is locked or logged out.
+ * The heartbeat is off by default and gated on {@link KeepAliveSettingsService}, because it is a
+ * real trade rather than a free win. Key material is unaffected — the session key still lives
+ * only in session storage and still dies with the browser session, and lock, vault timeout and
+ * logout behaviour are untouched — but a resident worker holds its decrypted session cache in
+ * memory for the whole browser session instead of the seconds around each use, and holds an
+ * extra renderer process open to host the heartbeat. The heartbeat stops as soon as the setting
+ * is turned off, every account locks or logs out, or the machine goes idle.
  */
 export class ServiceWorkerKeepAliveService {
   private running = false;
@@ -38,6 +44,7 @@ export class ServiceWorkerKeepAliveService {
   constructor(
     private readonly authService: AuthService,
     private readonly offscreenDocumentService: OffscreenDocumentService,
+    private readonly keepAliveSettingsService: KeepAliveSettingsService,
     private readonly logService: LogService,
   ) {}
 
@@ -52,9 +59,16 @@ export class ServiceWorkerKeepAliveService {
 
     // The subscription is never torn down: an MV3 worker has no shutdown hook to tear it down
     // from, and it should live for exactly as long as the worker does.
-    combineLatest([this.anyAccountUnlocked$(), this.userIsActive$()])
+    combineLatest([
+      this.keepAliveSettingsService.keepServiceWorkerAlive$,
+      this.anyAccountUnlocked$(),
+      this.userIsActive$(),
+    ])
       .pipe(
-        map(([anyAccountUnlocked, userIsActive]) => anyAccountUnlocked && userIsActive),
+        map(
+          ([enabled, anyAccountUnlocked, userIsActive]) =>
+            enabled && anyAccountUnlocked && userIsActive,
+        ),
         distinctUntilChanged(),
       )
       .subscribe((shouldStayResident) => {

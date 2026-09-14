@@ -28,7 +28,11 @@ import { LogService } from "@bitwarden/common/platform/abstractions/log.service"
 import { PlatformUtilsService } from "@bitwarden/common/platform/abstractions/platform-utils.service";
 import { MessageSender } from "@bitwarden/common/platform/messaging";
 import { StateProvider } from "@bitwarden/common/platform/state";
-import { FakeAccountService, mockAccountServiceWith } from "@bitwarden/common/spec";
+import {
+  FakeAccountService,
+  FakeStateProvider,
+  mockAccountServiceWith,
+} from "@bitwarden/common/spec";
 import { UserId } from "@bitwarden/common/types/guid";
 import { CipherService } from "@bitwarden/common/vault/abstractions/cipher.service";
 import { DialogRef, DialogService, ToastService } from "@bitwarden/components";
@@ -44,6 +48,7 @@ import { BrowserApi } from "../../../platform/browser/browser-api";
 import BrowserPopupUtils from "../../../platform/browser/browser-popup-utils";
 import { PopOutComponent } from "../../../platform/popup/components/pop-out.component";
 import { PopupRouterCacheService } from "../../../platform/popup/view-cache/popup-router-cache.service";
+import { KeepAliveSettingsService } from "../../../platform/services/keep-alive/keep-alive-settings.service";
 
 import { AccountSecurityComponent } from "./account-security.component";
 
@@ -87,6 +92,9 @@ describe("AccountSecurityComponent", () => {
   const vaultNudgesService = mock<NudgesService>();
   const vaultTimeoutSettingsService = mock<VaultTimeoutSettingsService>();
   const sharedUnlockSettingsService = mock<SharedUnlockSettingsService>();
+  const keepAliveSettingsService = new KeepAliveSettingsService(
+    new FakeStateProvider(mockAccountServiceWith(mockUserId)),
+  );
   const mockI18nService = mock<I18nService>();
 
   // Mock subjects to control the phishing detection observables
@@ -141,6 +149,7 @@ describe("AccountSecurityComponent", () => {
         },
         { provide: ConfigService, useValue: configService },
         { provide: SharedUnlockSettingsService, useValue: sharedUnlockSettingsService },
+        { provide: KeepAliveSettingsService, useValue: keepAliveSettingsService },
         { provide: VaultTimeoutSettingsService, useValue: vaultTimeoutSettingsService },
       ],
     })
@@ -295,6 +304,27 @@ describe("AccountSecurityComponent", () => {
 
     const pinInputElement = fixture.debugElement.query(By.css("#pin"));
     expect(pinInputElement).toBeNull();
+  });
+
+  describe("keep extension running setting", () => {
+    it("starts off and persists the change when the form value changes", async () => {
+      policyService.policiesByType$.mockReturnValue(of([null]));
+
+      await component.ngOnInit();
+      fixture.detectChanges();
+
+      expect(component.form.controls.keepServiceWorkerAlive.value).toBe(false);
+
+      component.form.controls.keepServiceWorkerAlive.setValue(true);
+      fixture.detectChanges();
+      // Wait briefly to allow any debounced or async valueChanges handlers to run
+      // fixture.whenStable() does not work here
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      await expect(firstValueFrom(keepAliveSettingsService.keepServiceWorkerAlive$)).resolves.toBe(
+        true,
+      );
+    });
   });
 
   describe("phishing detection UI and setting", () => {
