@@ -12,7 +12,7 @@ import { ServerNotificationsService } from "@bitwarden/common/platform/server-no
 import { LockService, LockSource } from "@bitwarden/unlock";
 import { UserId } from "@bitwarden/user-core";
 
-import { IDLE_DETECTION_INTERVAL_SECONDS } from "../platform/browser/browser-api";
+import { IDLE_DETECTION_INTERVAL_SECONDS } from "../platform/browser/idle-detection.constant";
 
 export default class IdleBackground {
   private idle: typeof chrome.idle | typeof browser.idle | null;

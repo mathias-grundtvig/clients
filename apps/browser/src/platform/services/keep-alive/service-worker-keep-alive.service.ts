@@ -4,7 +4,8 @@ import { AuthService } from "@bitwarden/common/auth/abstractions/auth.service";
 import { AuthenticationStatus } from "@bitwarden/common/auth/enums/authentication-status";
 import { LogService } from "@bitwarden/common/platform/abstractions/log.service";
 
-import { BrowserApi, IDLE_DETECTION_INTERVAL_SECONDS } from "../../browser/browser-api";
+import { BrowserApi } from "../../browser/browser-api";
+import { IDLE_DETECTION_INTERVAL_SECONDS } from "../../browser/idle-detection.constant";
 import { OffscreenDocumentService } from "../../offscreen-document/abstractions/offscreen-document";
 
 import { KeepAliveSettingsService } from "./keep-alive-settings.service";
@@ -169,8 +170,24 @@ export class ServiceWorkerKeepAliveService {
         intervalMs: KEEP_ALIVE_INTERVAL_MS,
       });
     } catch (error) {
+      // Give the document back before clearing `running`. Leaving a hold recorded here would
+      // let the next start take a second one and overwrite the release function, stranding the
+      // first hold and leaving the document open for the rest of the browser session.
       this.running = false;
+      await this.releaseHeldDocument();
       this.logService.error("Failed to start the service worker heartbeat", error);
+    }
+  }
+
+  /** Releases the held document, if this instance is holding one. Safe to call repeatedly. */
+  private async releaseHeldDocument() {
+    const release = this.releaseOffscreenDocument;
+    this.releaseOffscreenDocument = null;
+
+    try {
+      await release?.();
+    } catch (error) {
+      this.logService.error("Failed to release the offscreen document", error);
     }
   }
 
@@ -188,11 +205,6 @@ export class ServiceWorkerKeepAliveService {
       // exactly the state we wanted.
     });
 
-    const release = this.releaseOffscreenDocument;
-    this.releaseOffscreenDocument = null;
-
-    void release?.().catch((error) =>
-      this.logService.error("Failed to release the offscreen document", error),
-    );
+    void this.releaseHeldDocument();
   }
 }

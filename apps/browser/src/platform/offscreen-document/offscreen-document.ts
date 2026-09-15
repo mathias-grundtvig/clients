@@ -11,6 +11,13 @@ import {
   OffscreenDocument as OffscreenDocumentInterface,
 } from "./abstractions/offscreen-document";
 
+/**
+ * The shortest keep alive interval this document will honour. Chrome tears an idle service
+ * worker down after 30 seconds, so nothing useful needs to ping faster than this, and rejecting
+ * anything shorter keeps a malformed request from spinning the event loop.
+ */
+const MINIMUM_KEEP_ALIVE_INTERVAL_MS = 1_000;
+
 class OffscreenDocument implements OffscreenDocumentInterface {
   private consoleLogService: ConsoleLogService = new ConsoleLogService(false);
   private keepAliveInterval: number | null = null;
@@ -68,6 +75,15 @@ class OffscreenDocument implements OffscreenDocumentInterface {
    * Chrome has already torn it down.
    */
   private handleStartServiceWorkerKeepAlive(intervalMs: number) {
+    if (!Number.isFinite(intervalMs) || intervalMs < MINIMUM_KEEP_ALIVE_INTERVAL_MS) {
+      // `setInterval` coerces a missing or nonsensical delay to 0, which would ping as fast as
+      // the event loop allows and burn a core for as long as the document lives.
+      this.consoleLogService.warning(
+        `Ignoring a service worker keep alive request with an interval of ${intervalMs}ms.`,
+      );
+      return;
+    }
+
     this.handleStopServiceWorkerKeepAlive();
 
     this.keepAliveInterval = self.setInterval(() => {

@@ -7,7 +7,8 @@ import { LogService } from "@bitwarden/common/platform/abstractions/log.service"
 import { FakeStateProvider, mockAccountServiceWith } from "@bitwarden/common/spec";
 import { UserId } from "@bitwarden/common/types/guid";
 
-import { BrowserApi, IDLE_DETECTION_INTERVAL_SECONDS } from "../../browser/browser-api";
+import { BrowserApi } from "../../browser/browser-api";
+import { IDLE_DETECTION_INTERVAL_SECONDS } from "../../browser/idle-detection.constant";
 import { OffscreenDocumentService } from "../../offscreen-document/abstractions/offscreen-document";
 
 import { KeepAliveSettingsService } from "./keep-alive-settings.service";
@@ -199,6 +200,27 @@ describe("ServiceWorkerKeepAliveService", () => {
     sut.init();
 
     expect(BrowserApi.queryIdleState).toHaveBeenCalledWith(IDLE_DETECTION_INTERVAL_SECONDS);
+  });
+
+  it("releases the offscreen document when the heartbeat fails to start", async () => {
+    jest
+      .spyOn(BrowserApi, "sendMessageWithResponse")
+      .mockRejectedValue(new Error("Extension context invalidated."));
+
+    sut.init();
+    authStatuses.next({ [userId]: AuthenticationStatus.Unlocked });
+    await flushPromises();
+
+    expect(releaseOffscreenDocument).toHaveBeenCalledTimes(1);
+
+    // A failed start must not strand its hold: the next start has to take exactly one more.
+    jest.spyOn(BrowserApi, "sendMessageWithResponse").mockResolvedValue(undefined);
+    authStatuses.next({ [userId]: AuthenticationStatus.Locked });
+    authStatuses.next({ [userId]: AuthenticationStatus.Unlocked });
+    await flushPromises();
+
+    expect(offscreenDocumentService.holdDocument).toHaveBeenCalledTimes(2);
+    expect(releaseOffscreenDocument).toHaveBeenCalledTimes(1);
   });
 
   it("releases the offscreen document when the heartbeat stops", async () => {

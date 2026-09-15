@@ -14,15 +14,6 @@ import { BrowserPlatformUtilsService } from "../services/platform-utils/browser-
 import { registerContentScriptsPolyfill } from "./browser-api.register-content-scripts-polyfill";
 import { ExtensionInstallType } from "./extension-install-type";
 
-/**
- * How long the machine has to go untouched before the browser reports it as idle.
- *
- * `chrome.idle.setDetectionInterval` is global to the extension, so this is the single
- * threshold every idle consumer sees. Reading it with any other value only makes that reading
- * disagree with the `onStateChanged` events that follow.
- */
-export const IDLE_DETECTION_INTERVAL_SECONDS = 60 * 5;
-
 export class BrowserApi {
   static isWebExtensionsApi: boolean = typeof browser !== "undefined";
   static isSafariApi: boolean = isBrowserSafariApi();
